@@ -36,6 +36,14 @@ export default function Home() {
   const [hideApc, setHideApc] = useState(false);
   const [hideYasuo, setHideYasuo] = useState(true);
 
+  const handleClearMatchups = () => {
+    setSelectedAllySupport(null);
+    setSelectedEnemySupport(null);
+    setSelectedEnemyADC(null);
+    setSelectedEnemyThreat(null);
+    setSelectedChampion(null);
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const allySupport = params.get("allySupport");
@@ -430,7 +438,7 @@ export default function Home() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="flex items-center justify-end mb-3">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-6 gap-3 text-sm text-gray-300 font-ui">
               <label className="flex items-center gap-3">
                 <Switch checked={hideApc} onCheckedChange={(val) => setHideApc(Boolean(val))} />
@@ -446,6 +454,16 @@ export default function Home() {
                   <span className="text-xs text-gray-500">(auto-hidden)</span>
                 </span>
               </label>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearMatchups}
+                className="border-primary/40 text-white bg-card/70 hover:bg-card/90"
+              >
+                Clear all matchups
+              </Button>
             </div>
           </div>
           <FilterBar
