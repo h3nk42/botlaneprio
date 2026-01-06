@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, Save, Clock } from "lucide-react";
+import { Trash2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SavedDraft {
@@ -36,8 +36,6 @@ export function DraftsPanel({
   onLoadDraft,
 }: DraftsPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [draftName, setDraftName] = useState("");
-  const [draftNotes, setDraftNotes] = useState("");
   const queryClient = useQueryClient();
 
   const { data: drafts = [] } = useQuery({
@@ -45,32 +43,6 @@ export function DraftsPanel({
     queryFn: async () => {
       const res = await fetch("/api/drafts");
       return res.json();
-    },
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentAdc || !draftName.trim()) return;
-      const res = await fetch("/api/drafts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: draftName,
-          adcChampion: currentAdc,
-          allySupport: currentAllySupport,
-          enemyAdc: currentEnemyAdc,
-          enemySupport: currentEnemySupport,
-          enemyThreat: currentEnemyThreat,
-          notes: draftNotes,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to save draft");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/drafts"] });
-      setDraftName("");
-      setDraftNotes("");
     },
   });
 
@@ -95,32 +67,6 @@ export function DraftsPanel({
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="absolute bottom-16 right-0 bg-card/95 backdrop-blur-xl border border-primary/30 rounded-xl p-4 w-80 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
           >
-            <h3 className="font-heading text-primary text-lg mb-4">Save Draft</h3>
-            
-            <div className="space-y-3 mb-4">
-              <input
-                type="text"
-                placeholder="Draft name (e.g., 'Lane vs Zed')"
-                value={draftName}
-                onChange={(e) => setDraftName(e.target.value)}
-                className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-primary/60"
-              />
-              <textarea
-                placeholder="Notes..."
-                value={draftNotes}
-                onChange={(e) => setDraftNotes(e.target.value)}
-                className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-primary/60 resize-none h-20"
-              />
-              <Button
-                onClick={() => saveMutation.mutate()}
-                disabled={!currentAdc || !draftName.trim() || saveMutation.isPending}
-                className="w-full bg-primary hover:bg-primary/90 text-black font-bold"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save Draft
-              </Button>
-            </div>
-
             <div className="border-t border-white/10 pt-4">
               <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-3">Recent Drafts</h4>
               <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -162,18 +108,6 @@ export function DraftsPanel({
           </motion.div>
         )}
       </AnimatePresence>
-
-      <Button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "rounded-full w-14 h-14 shadow-lg transition-all",
-          isOpen
-            ? "bg-red-500/20 border-red-500 text-red-400"
-            : "bg-primary/20 border-primary text-primary hover:bg-primary/30"
-        )}
-      >
-        <Save className="w-6 h-6" />
-      </Button>
     </div>
   );
 }
