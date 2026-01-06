@@ -461,7 +461,7 @@ export default function Home() {
                   variant="outline"
                   size="sm"
                   onClick={handleClearMatchups}
-                  className="border-primary/40 text-white bg-card/70 hover:bg-card/90"
+                  className="border-primary/40 text-white bg-card/70 hover:bg-primary/20 hover:border-primary/60 transition-colors"
                 >
                   Clear all matchups
                 </Button>
