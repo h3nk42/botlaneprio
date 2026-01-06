@@ -510,7 +510,7 @@ const adcBase: Array<Omit<Champion, "imageSmall">> = [
     role: ["Mage"],
     difficulty: "Medium",
     image: "https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Yunara_0.jpg",
-    tags: ["APC", "Control", "Utility"],
+    tags: ["Control", "Utility", "Poke"],
     synergies: ["enchanter"],
     counters: ["assassin"],
     description: "New champion with plant-based abilities and zone control.",
