@@ -438,32 +438,34 @@ export default function Home() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-6 gap-3 text-sm text-gray-300 font-ui">
-              <label className="flex items-center gap-3">
-                <Switch checked={hideApc} onCheckedChange={(val) => setHideApc(Boolean(val))} />
-                <span className="flex items-center gap-1">
-                  Hide APC picks
-                  <span className="text-xs text-gray-500">(mage bot lanes)</span>
-                </span>
-              </label>
-              <label className="flex items-center gap-3">
-                <Switch checked={hideYasuo} onCheckedChange={(val) => setHideYasuo(Boolean(val))} />
-                <span className="flex items-center gap-1">
-                  Hide Yasuo
-                  <span className="text-xs text-gray-500">(auto-hidden)</span>
-                </span>
-              </label>
-            </div>
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearMatchups}
-                className="border-primary/40 text-white bg-card/70 hover:bg-card/90"
-              >
-                Clear all matchups
-              </Button>
+          <div className="w-full max-w-6xl mx-auto">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-3">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 gap-3 text-sm text-gray-300 font-ui">
+                <label className="flex items-center gap-3">
+                  <Switch checked={hideApc} onCheckedChange={(val) => setHideApc(Boolean(val))} />
+                  <span className="flex items-center gap-1">
+                    Hide APC picks
+                    <span className="text-xs text-gray-500">(mage bot lanes)</span>
+                  </span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <Switch checked={hideYasuo} onCheckedChange={(val) => setHideYasuo(Boolean(val))} />
+                  <span className="flex items-center gap-1">
+                    Hide Yasuo
+                    <span className="text-xs text-gray-500">(auto-hidden)</span>
+                  </span>
+                </label>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearMatchups}
+                  className="border-primary/40 text-white bg-card/70 hover:bg-card/90"
+                >
+                  Clear all matchups
+                </Button>
+              </div>
             </div>
           </div>
           <FilterBar
@@ -571,6 +573,14 @@ export default function Home() {
         currentEnemyThreat={selectedEnemyThreat}
         onLoadDraft={handleLoadDraft}
       />
+
+      <footer className="mt-12 pb-8">
+        <p className="text-xs text-gray-500 text-center leading-relaxed max-w-4xl mx-auto px-4">
+          This tool isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone
+          officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties
+          are trademarks or registered trademarks of Riot Games, Inc.
+        </p>
+      </footer>
     </div>
   );
 }
