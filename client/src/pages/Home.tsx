@@ -4,9 +4,11 @@ import { MATCHUP_DATA, SUPPORT_MATCHUP_DATA, confidenceMargin, weightedDelta } f
 import { ChampionCard } from "@/components/ChampionCard";
 import { FilterBar } from "@/components/FilterBar";
 import { DraftsPanel } from "@/components/DraftsPanel";
+import { ChampionPoolSelector } from "@/components/ChampionPoolSelector";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import generatedBg from "@assets/generated_images/abstract_hextech_background_with_blue_magic_and_gold_accents.png";
 
@@ -30,6 +32,9 @@ export default function Home() {
   const [selectedEnemyADC, setSelectedEnemyADC] = useState<string | null>(null);
   const [selectedEnemyThreat, setSelectedEnemyThreat] = useState<'assassin' | 'tank' | 'poke' | null>(null);
   const [selectedChampion, setSelectedChampion] = useState<Champion | null>(null);
+  const [championPool, setChampionPool] = useState<string[]>([]);
+  const [hideApc, setHideApc] = useState(false);
+  const [hideYasuo, setHideYasuo] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -55,6 +60,27 @@ export default function Home() {
       setSelectedEnemyThreat(threat);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("botlaneprio:championPool");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter((id): id is string => typeof id === "string" && adcs.some(champ => champ.id === id));
+          setChampionPool(valid);
+        }
+      } catch {
+        // ignore malformed localStorage entry
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("botlaneprio:championPool", JSON.stringify(championPool));
+  }, [championPool]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -98,6 +124,10 @@ export default function Home() {
 
   // Scoring Logic - Uses Delta 2 matchup data from LoLalytics
   const scoredChampions = useMemo(() => {
+    const poolSet = new Set(championPool.filter(id => adcs.some(champ => champ.id === id)));
+    const poolActive = poolSet.size > 0;
+    const allBlind = !selectedAllySupport && !selectedEnemySupport && !selectedEnemyADC && !selectedEnemyThreat;
+
     const combineMatchupValues = (values: Array<{ delta: number; games: number }>) => {
       if (values.length === 0) return null;
       const totalGames = values.reduce((sum, value) => sum + (value.games ?? 0), 0);
@@ -120,6 +150,12 @@ export default function Home() {
       let hasData = false;
 
       // Track individual score components for breakdown
+      let blindInfo: {
+        delta: number;
+        confidence: number | null;
+        games: number;
+        axes: Array<"allySupport" | "enemySupport" | "enemyBottom">;
+      } | null = null;
       let synergyInfo: { delta: number; confidence: number | null; games: number } | null = null;
       let allySupportMissing = false;
       let vsEnemySupportInfo: { delta: number; confidence: number | null; games: number } | null = null;
@@ -206,11 +242,98 @@ export default function Home() {
         hasData = true;
       }
 
+      // Blind pick robustness: average performance across supports/bot laners when no matchup is set.
+      // Apply the same weights as specific matchups: ally support ×2.0, enemy support ×0.5, enemy bottom ×0.2.
+      if (adcMatchup) {
+        let blindWeightedTotal = 0;
+        let blindWeights = 0;
+        let blindGames = 0;
+
+        // Ally support robustness
+        if (!selectedAllySupport) {
+          const blindSynergy: Array<{ delta: number; games: number }> = [];
+          if (adcMatchup.synergy) {
+            Object.values(adcMatchup.synergy).forEach(val => val && blindSynergy.push(val));
+          }
+          supports.forEach(supp => {
+            const supportView = SUPPORT_MATCHUP_DATA[supp.name]?.synergyBottom?.[champ.name];
+            if (supportView) blindSynergy.push(supportView);
+          });
+          const combinedBlindSynergy = combineMatchupValues(blindSynergy);
+          if (combinedBlindSynergy) {
+            const w = 2.0;
+            blindWeightedTotal += combinedBlindSynergy.delta * w;
+            blindWeights += w;
+            blindGames += combinedBlindSynergy.games ?? 0;
+            score += weightedDelta(combinedBlindSynergy) * w;
+            hasData = true;
+          }
+        }
+
+        // Enemy support robustness
+        if (!selectedEnemySupport && adcMatchup.counters) {
+          const blindVsEnemySupport: Array<{ delta: number; games: number }> = [];
+          supports.forEach(supp => {
+            const adcVsSupp = adcMatchup.counters?.[supp.name];
+            if (adcVsSupp) blindVsEnemySupport.push(adcVsSupp);
+            const suppVsBottom = SUPPORT_MATCHUP_DATA[supp.name]?.vsBottom?.[champ.name];
+            if (suppVsBottom) blindVsEnemySupport.push({ delta: -suppVsBottom.delta, games: suppVsBottom.games ?? 0 });
+          });
+          const combinedBlindEnemySupport = combineMatchupValues(blindVsEnemySupport);
+          if (combinedBlindEnemySupport) {
+            const w = 0.5;
+            blindWeightedTotal += combinedBlindEnemySupport.delta * w;
+            blindWeights += w;
+            blindGames += combinedBlindEnemySupport.games ?? 0;
+            score += weightedDelta(combinedBlindEnemySupport) * w;
+            hasData = true;
+          }
+        }
+
+        // Enemy bottom robustness
+        if (!selectedEnemyADC) {
+          const blindEnemyBottom: Array<{ delta: number; games: number }> = [];
+          botLaners.forEach(enemy => {
+            const adcVsEnemyBottom = adcMatchup.enemyBottom?.[enemy.name];
+            if (adcVsEnemyBottom) blindEnemyBottom.push(adcVsEnemyBottom);
+            const enemyMatchup = MATCHUP_DATA[enemy.name];
+            const enemyVsUs = enemyMatchup?.enemyBottom?.[champ.name];
+            if (enemyVsUs) {
+              blindEnemyBottom.push({ delta: -enemyVsUs.delta, games: enemyVsUs.games ?? 0 });
+            }
+          });
+          const combinedBlindEnemyBottom = combineMatchupValues(blindEnemyBottom);
+          if (combinedBlindEnemyBottom) {
+            const w = 0.2;
+            blindWeightedTotal += combinedBlindEnemyBottom.delta * w;
+            blindWeights += w;
+            blindGames += combinedBlindEnemyBottom.games ?? 0;
+            score += weightedDelta(combinedBlindEnemyBottom) * w;
+            hasData = true;
+          }
+        }
+
+        if (blindWeights > 0) {
+          const axes: Array<"allySupport" | "enemySupport" | "enemyBottom"> = [];
+          if (!selectedAllySupport && blindWeightedTotal) axes.push("allySupport");
+          if (!selectedEnemySupport && blindWeightedTotal) axes.push("enemySupport");
+          if (!selectedEnemyADC && blindWeightedTotal) axes.push("enemyBottom");
+
+          blindInfo = {
+            delta: blindWeightedTotal / blindWeights,
+            confidence: null,
+            games: blindGames,
+            axes,
+          };
+        }
+      }
+
       return {
         champ,
         rawScore: score,
         hasData,
         breakdown: {
+          blind: blindInfo,
           synergy: synergyInfo,
           allySupportMissing,
           vsEnemySupport: vsEnemySupportInfo,
@@ -232,13 +355,13 @@ export default function Home() {
     const maxRawScore = scoresWithData.length > 0 ? Math.max(...scoresWithData) : 0;
 
     // Normalize to 0-100 scale
-    const allBlind = !selectedAllySupport && !selectedEnemySupport && !selectedEnemyADC && !selectedEnemyThreat;
-
     return rawScores.map(({ champ, rawScore, hasData, breakdown }) => {
       let normalizedScore: number;
 
       if (allBlind) {
-        normalizedScore = 50;
+        normalizedScore = hasData
+          ? 50 + Math.max(-15, Math.min(15, rawScore * 10))
+          : 50;
       } else if (!hasData) {
         normalizedScore = 50;
       } else if (maxRawScore === minRawScore) {
@@ -250,8 +373,11 @@ export default function Home() {
       return { ...champ, score: Math.round(normalizedScore), breakdown };
     })
       .filter(champ => champ.id !== selectedAllySupport)
+      .filter(champ => !poolActive || poolSet.has(champ.id))
+      .filter(champ => !hideApc || !champ.tags.includes("APC"))
+      .filter(champ => !hideYasuo || champ.id !== "yasuo")
       .sort((a, b) => b.score - a.score);
-  }, [selectedAllySupport, selectedEnemySupport, selectedEnemyADC, selectedEnemyThreat]);
+  }, [championPool, hideApc, hideYasuo, selectedAllySupport, selectedEnemySupport, selectedEnemyADC, selectedEnemyThreat]);
 
   return (
     <div className="min-h-screen text-foreground font-sans selection:bg-primary selection:text-black">
@@ -297,11 +423,31 @@ export default function Home() {
         </header>
 
         {/* Filters */}
+        <ChampionPoolSelector pool={championPool} onChange={setChampionPool} />
+
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
         >
+          <div className="flex items-center justify-end mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-6 gap-3 text-sm text-gray-300 font-ui">
+              <label className="flex items-center gap-3">
+                <Switch checked={hideApc} onCheckedChange={(val) => setHideApc(Boolean(val))} />
+                <span className="flex items-center gap-1">
+                  Hide APC picks
+                  <span className="text-xs text-gray-500">(mage bot lanes)</span>
+                </span>
+              </label>
+              <label className="flex items-center gap-3">
+                <Switch checked={hideYasuo} onCheckedChange={(val) => setHideYasuo(Boolean(val))} />
+                <span className="flex items-center gap-1">
+                  Hide Yasuo
+                  <span className="text-xs text-gray-500">(auto-hidden)</span>
+                </span>
+              </label>
+            </div>
+          </div>
           <FilterBar
             selectedAllySupport={selectedAllySupport}
             selectedEnemySupport={selectedEnemySupport}

@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Champion } from "../lib/champions";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Target, Shield, Zap, Skull, Users, Swords } from "lucide-react";
+import { Target, Shield, Zap, Skull, Users, Swords, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MatchupBreakdown {
@@ -12,6 +12,7 @@ interface MatchupBreakdown {
 }
 
 interface ScoreBreakdown {
+  blind?: (MatchupBreakdown & { axes?: Array<"allySupport" | "enemySupport" | "enemyBottom"> }) | null;
   synergy: MatchupBreakdown | null;
   vsEnemySupport: MatchupBreakdown | null;
   vsEnemyBottom: MatchupBreakdown | null;
@@ -41,7 +42,8 @@ export function ChampionCard({ champion, matchScore, breakdown, onClick, selecte
   const hasBreakdown = Boolean(
     breakdown
     && (
-      breakdown.synergy
+      breakdown.blind
+      || breakdown.synergy
       || breakdown.allySupportMissing
       || breakdown.vsEnemySupport
       || breakdown.vsEnemyBottom
@@ -134,6 +136,27 @@ export function ChampionCard({ champion, matchScore, breakdown, onClick, selecte
 
           {hasBreakdown ? (
             <div className="space-y-1.5 text-xs font-ui mt-2 pt-2 border-t border-white/5">
+              {breakdown.blind && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <Eye className="w-3 h-3 text-primary" />
+                    <span>Blind pick</span>
+                    {breakdown.blind.axes && breakdown.blind.axes.length > 0 && (
+                      <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                        ({breakdown.blind.axes.map(axis => {
+                          if (axis === "allySupport") return "ally";
+                          if (axis === "enemySupport") return "vs supp";
+                          if (axis === "enemyBottom") return "vs bot";
+                          return axis;
+                        }).join(" • ")})
+                      </span>
+                    )}
+                  </div>
+                  <span className={cn("font-medium", getDeltaColor(breakdown.blind.delta))}>
+                    {formatDeltaWithConfidence(breakdown.blind)}
+                  </span>
+                </div>
+              )}
               {(breakdown.synergy || breakdown.allySupportMissing) && breakdown.allySuppName && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 text-gray-400">
